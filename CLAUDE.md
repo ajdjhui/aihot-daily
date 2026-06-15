@@ -12,14 +12,18 @@ python main.py --dry
 python main.py
 ```
 
-Requirements: `pip install -r requirements.txt` (requests, python-dotenv).
+Requirements: `pip install -r requirements.txt` (requests, python-dotenv, mysql-connector-python).
+
+```bash
+# 初始化本地 MySQL 数据库（仅首次）
+mysql -u root -p < setup_db.sql
 
 ## Architecture
 
-Three-stage pipeline in `main.py`:
+Four-stage pipeline in `main.py`:
 
 ```
-fetch_report() → render_html() → send_email()
+fetch_report() → save_report() → render_html() → send_email()
 ```
 
 ### Data layer (`src/fetch_report.py`)
@@ -59,6 +63,20 @@ Produces a self-contained HTML email (no external CSS/images). Design constraint
 
 SMTP via environment variables. Port 465 → SSL, all others → STARTTLS. Fails with Chinese-language error messages for auth/connection failures.
 
+### Store layer (`src/db_store.py`)
+
+Persists the normalized report dict into a local MySQL database. **Fail-safe**: DB connection errors are logged but never block email delivery.
+
+Database `aihot`, three tables (see `setup_db.sql`):
+
+| Table | Purpose | Key columns |
+|-------|---------|-------------|
+| `daily_reports` | One row per report date | `report_date` (UNIQUE), `lead_text`, `total_items` |
+| `report_items` | Individual news items within sections | `report_date`, `section`, `title`, `summary`, `url` |
+| `report_flashes` | Flash/brief news items | `report_date`, `title`, `source`, `url` |
+
+Dedup: `INSERT ON DUPLICATE KEY UPDATE` for the main table; `DELETE` + re-insert for items/flashes — so re-running on the same date always reflects the latest fetch without duplicates.
+
 ## Configuration
 
 All SMTP settings via environment variables (`.env` for local, GitHub Secrets for production):
@@ -66,6 +84,7 @@ All SMTP settings via environment variables (`.env` for local, GitHub Secrets fo
 - `SMTP_HOST` / `SMTP_PORT` (default 587)
 - `SMTP_USER` / `SMTP_PASS`
 - `TO_EMAIL` / `FROM_EMAIL` (optional, defaults to SMTP_USER)
+- `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASS` / `DB_NAME` — defaults to `root@localhost:3306/aihot`, all optional
 
 ## GitHub Actions
 
