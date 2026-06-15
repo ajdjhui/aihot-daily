@@ -29,6 +29,7 @@ except ImportError:
 from src.fetch_report import fetch_report
 from src.render_email import render_html
 from src.send_email import send_email
+from src.db_store import save_report
 
 logging.basicConfig(
     level=logging.INFO,
@@ -61,6 +62,12 @@ def main() -> None:
     if total == 0:
         logger.warning("今日无数据，跳过发送。")
         sys.exit(0)
+
+    # 1.5 存入数据库（失败不影响后续流程）
+    try:
+        save_report(report)
+    except Exception as e:
+        logger.warning("存库失败（不影响邮件发送）: %s", e)
 
     # 2. 渲染 HTML
     logger.info("🎨 渲染 HTML 邮件...")
