@@ -96,3 +96,52 @@ All SMTP settings via environment variables (`.env` for local, GitHub Secrets fo
 ## Network note
 
 HTTPS (port 443) to GitHub is unreachable from the development environment; SSH (port 22) works. Always use `git@github.com` SSH remotes, never HTTPS.
+
+## Video project (`video/`)
+
+Remotion-based explainer video for the AI HOT project. Generates a ~5-minute 1920×1080 30fps MP4 with 3D background, AI voiceover, and animated subtitles.
+
+```bash
+cd video
+npm install   # first time only
+
+# Generate Chinese voiceover (Edge TTS, free)
+python scripts/generate_audio_edge.py
+
+# Live preview in Remotion Studio
+npm run dev
+
+# Render final MP4 (requires --gl=angle on Windows)
+npx remotion render AihotIntro out/video.mp4 --gl=angle
+```
+
+### Video architecture
+
+Audio-driven scene switching — `audioConfig.ts` is the single source of truth for timing:
+
+```
+scripts/script.json         →  human-written script (edit text here)
+  ↓ gen_subtitles.py + generate_audio_edge.py
+  ↓
+src/audioConfig.ts          →  scene durations (from MP3 lengths) + transition config
+src/subtitles.ts            →  119 subtitle entries with startFrame/endFrame
+  ↓
+src/AihotIntro.tsx          →  main component: scenes + subtitles + transitions
+src/Background3D.tsx        →  3D wireframe torus + particles (Three.js)
+src/Root.tsx                →  Remotion composition registration
+```
+
+### Video workflow
+
+1. **Edit script**: modify `scripts/script.json` (add/remove/edit scenes and their text)
+2. **Regenerate audio**: `python scripts/generate_audio_edge.py` (uses `zh-CN-YunyangNeural` voice)
+3. **Regenerate subtitles**: `python scripts/gen_subtitles.py` (splits text by punctuation, distributes across scene duration)
+4. **Update audioConfig.ts**: paste the MP3 durations from the audio generation output
+5. **Preview**: `npm run dev` (opens Remotion Studio in browser)
+6. **Render**: `npx remotion render AihotIntro out/video.mp4 --gl=angle`
+
+### Video style
+
+- **v3 (current)**: Minimal dark tech style — `#080810` background, gray-blue text (`#a0a5aa`), cyan accents (`#82c8d2`), soft fade transitions, bottom subtitles
+- **3D background**: Two rotating wireframe torus rings + 40 floating particles, subtle opacity
+- **BGM**: Synthetic beat (`public/audio/bgm.wav`), generated as fallback when Pixabay download fails
