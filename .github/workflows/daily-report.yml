@@ -2,8 +2,8 @@ name: AI HOT Daily Report
 
 on:
   schedule:
-    # 每天 UTC 01:00 = 北京时间 09:00
-    - cron: "0 1 * * *"
+    # UTC 21:00 = 北京 05:00；GitHub 免费套餐有延迟，实际约 09:00-10:00 到
+    - cron: "0 21 * * *"
   workflow_dispatch: {}  # 允许手动触发
 
 jobs:
